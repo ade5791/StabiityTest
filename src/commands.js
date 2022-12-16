@@ -1,74 +1,38 @@
-import axios from "axios";
-import FormData from "form-data";
-var Buffer = require("@craftzdog/react-native-buffer").Buffer;
+const STABILITY_API_KEY = "<YOUR-API-KEY-HERE>";
 
-const stabilityAPI = "dreamboot api";
-
-async function stabilityAITxt2Img(
+async function fetchFromStabilityAI(
   prompt,
-
-  refImage
+  initImage
 ) {
   console.log("The prompt is", prompt);
-  console.log("The refImage is", refImage);
+  console.log("The initImage is", initImage);
 
-  if (refImage == null) {
-    console.log("refImage is null");
-
-    let response = await axios(
-      "https://api.stability.ai/v1alpha/generation/stable-diffusion-768-v2-1/text-to-image",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: stabilityAPI,
-        },
-        data: {
-          cfg_scale: 7.5,
-          clip_guidance_preset: "FAST_BLUE",
-          height: 768,
-          width: 768,
-          samples: 1,
-          sampler: "K_EULER_ANCESTRAL",
-          steps: 50,
-          text_prompts: [
-            {
-              text: prompt,
-              weight: 1,
-            },
-            {
-              text: "ugly, asymmetrical, bad anatomy, Unappealing, Unsightly, Unpleasing to the eye, Inelegant, Unbalanced, Awkward, Clumsy, Unrefined, Unpolished, Unshapely, Unattractive, Unflattering, Unaesthetic, Plain, Unimpressive, Unremarkable, Uninteresting, Boring",
-              weight: -1,
-            },
-          ],
-        },
-      }
-    )
-      .then((response) => response.data)
-      .then(function (data) {
-        return data["artifacts"][0]["base64"];
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-
-    return response;
+  if (initImage == null) {
+    console.log("Performing text-to-image...");
+    return await textToImage(prompt);
   } else {
-    console.log("refImage is", refImage);
+    console.log("Performing image-to-image...");
+    return await imageToImage(prompt, initImage);
+  }
+}
 
-    var data = new FormData();
-    data.append("init_image", Buffer.from(refImage, "binary"));
-
-    data.append(
-      "options",
-      JSON.stringify({
+async function textToImage(prompt) {
+  const response = await fetch(
+    "https://api.stability.ai/v1alpha/generation/stable-diffusion-768-v2-1/text-to-image",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: STABILITY_API_KEY,
+      },
+      body: JSON.stringify({
         cfg_scale: 7.5,
         clip_guidance_preset: "FAST_BLUE",
-        step_schedule_start: 0.6,
-        step_schedule_end: 0.01,
         height: 768,
         width: 768,
+        samples: 1,
+        sampler: "K_EULER_ANCESTRAL",
         steps: 50,
         text_prompts: [
           {
@@ -80,52 +44,75 @@ async function stabilityAITxt2Img(
             weight: -1,
           },
         ],
-      })
-    );
-    /*
-      var config = {
-        method: "post",
-        url: "https://api.stability.ai/v1alpha/generation/stable-diffusion-768-v2-1/image-to-image",
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Accept: "application/json",
-          Authorization: stabilityAPI,
-        },
-        data: data,
-      };
-      let response = axios(config)
-        .then((response) => response.data)
-        .then(function (data) {
-          return data["artifacts"][0]["base64"];
-        })
-        .catch(function (error) {
-          console.log(error);
-        });
-  
-      return response;
-    }*/
-
-    console.log("checking response");
-    let response = await fetch(
-      "https://api.stability.ai/v1alpha/generation/stable-diffusion-768-v2-1/image-to-image",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Accept: "application/json",
-          Authorization: stabilityAPI,
-        },
-        body: data,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Non-200 response: ${await response.text()}`);
+      }),
     }
-    return await response.text()["artifacts"][0]["base64"];
+  )
+
+
+  if (!response.ok) {
+    throw new Error(`[text-to-image] Non-200 response: ${await response.text()}`);
   }
+
+  const json = await response.json()
+
+  return json["artifacts"][0]["base64"]
+}
+
+async function imageToImage(prompt, initImage) {
+  console.log("initImage is", initImage);
+
+  const data = new FormData();
+
+  data.append("init_image", {
+    uri: initImage,
+    type: "image/png",
+    name: "image.png"
+  });
+
+  data.append(
+    "options",
+    JSON.stringify({
+      cfg_scale: 7.5,
+      clip_guidance_preset: "FAST_BLUE",
+      height: 768,
+      width: 768,
+      steps: 50,
+      text_prompts: [
+        {
+          text: prompt,
+          weight: 1,
+        },
+        {
+          text: "ugly, asymmetrical, bad anatomy, Unappealing, Unsightly, Unpleasing to the eye, Inelegant, Unbalanced, Awkward, Clumsy, Unrefined, Unpolished, Unshapely, Unattractive, Unflattering, Unaesthetic, Plain, Unimpressive, Unremarkable, Uninteresting, Boring",
+          weight: -1,
+        },
+      ],
+    })
+  );
+
+  console.log("checking response");
+  const response = await fetch(
+    "https://api.stability.ai/v1alpha/generation/stable-diffusion-768-v2-1/image-to-image",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Accept: "application/json",
+        Authorization: STABILITY_API_KEY,
+      },
+      body: data,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`[image-to-image] Non-200 response: ${await response.text()}`);
+  }
+
+  const json = await response.json()
+
+  return json["artifacts"][0]["base64"]
 }
 
 module.exports = {
-  stabilityAITxt2Img,
+  fetchFromStabilityAI,
 };

@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  Platform,
-  FlatList,
-  ActivityIndicator,
-  ImageBackground
-} from "react-native";
+import React, { useState } from "react";
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import commands from "./src/commands";
-import { Avatar, Button, Card, Title, Paragraph } from "react-native-paper";
+import { Card } from "react-native-paper";
 
-import {
-
-  SkypeIndicator,
-
-} from  "react-native-indicators";
+import { SkypeIndicator, } from "react-native-indicators";
 import * as ImagePicker from "expo-image-picker";
-
 
 export default function App() {
   const [refImage, setRefImage] = useState(null);
@@ -31,34 +15,36 @@ export default function App() {
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
+      selectionLimit: 1,
+      allowsMultipleSelection: false
     });
 
     if (!result.canceled) {
       setRefImage(result.uri);
     }
   };
-  const generatePrompt = (prompt) => {
+
+  const generateImage = (prompt) => {
     setLoading(true);
     //see if prompt contains a URL
     try {
- 
-              commands
-              .stabilityAITxt2Img(prompt, refImage)
-              .then((res) => {
-                //console.log("Prediction is :" , res);
-                setPreviousPrediction(res);
-                setDisplayImage(res);
-                setLoading(false);
-              })
-              .catch((err) => {
-                console.log(err);
-                setLoading(false);
-              });
+      commands
+        .fetchFromStabilityAI(prompt, refImage)
+        .then((res) => {
+          //console.log("Prediction is :" , res);
+          setPreviousPrediction(res);
+          setDisplayImage(res);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.log(err);
+          setLoading(false);
+        });
     } catch (err) {
       console.log(err);
     }
@@ -66,80 +52,82 @@ export default function App() {
 
 
   return (
- <View style={styles.container}>
-        <Text style={styles.title}>Dream</Text>
-        <View style={styles.promptContainer}>
+    <View style={styles.container}>
+      <Text style={styles.title}>Dream</Text>
+      <View style={styles.promptContainer}>
         <Card style={styles.card}>
-        <Card.Content>   
-        <View
-          style={{
-            marginTop: -10,
-            width: "100%",
-          }}
-        >
-          <TextInput
-            style={styles.InputText}
-            onChangeText={(prompt) => setPrompt(prompt)}
-            placeholder={`Type your prompt here`}
-          />
-         
-      
+          <Card.Content>
+            <View
+              style={{
+                marginTop: -10,
+                width: "100%",
+              }}
+            >
+              <TextInput
+                style={styles.InputText}
+                onChangeText={(prompt) => setPrompt(prompt)}
+                placeholder={`Type your prompt here`}
+              />
+
+
+              <TouchableOpacity
+                style={styles.generateButton}
+                onPress={() => {
+                  generateImage(prompt);
+                }}
+              >
+                <Image
+                  style={styles.tinyLogo}
+                  resizeMode="cover"
+                  source={require("./assets/go.png")}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+      <View style={styles.answerContainer}>
+
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.generateButton}
+            style={styles.galleryButton}
             onPress={() => {
-              generatePrompt(prompt);
+              pickImage();
             }}
           >
             <Image
-              style={styles.tinyLogo}
+              style={styles.galleryIcon}
               resizeMode="cover"
-              source={require("./assets/go.png")}
+              source={require("./assets/add.png")}
             />
-          </TouchableOpacity>    
-          </View> 
-          </Card.Content>
-           </Card> 
-     </View>
-        <View style={styles.answerContainer}>
-        
-          <View style={styles.buttonContainer}>
-          <TouchableOpacity
-              style={styles.galleryButton}
-              onPress={() => {
-                pickImage();
-              }}
-            >
-              <Image
-                style={styles.galleryIcon}
-                resizeMode="cover"
-                source={require("./assets/add.png")}
-              />
-            </TouchableOpacity>
-         
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.displayImage}>
-            {refImage ? (
-              <Image
-                source={{ uri: refImage }}
-                style={styles.imageContainer}
-                resizeMode="cover"
-              />
-            ) : null}
-            {loading ? (
-              <SkypeIndicator color="#5f5fff" style={styles.Indicator}/>
-            ) : (
-              <Image
-                style={styles.imageContainer}
-                resizeMode="cover"
-                //   source={{ uri: `data:image/png;base64,${displayImage[0]}`}}
-                source={{ uri: `data:image/png;base64,${displayImage}` }}
-              />
-            )}
-          </View>
+        </View>
+
+        <View style={styles.displayImage}>
+          {/* Temporarily added !displayImage here to make it easier to see the result */}
+          {!displayImage && refImage ? (
+            <Image
+              source={{uri: refImage}}
+              style={styles.imageContainer}
+              resizeMode="cover"
+            />
+          ) : null}
+
+          {loading ? (
+            <SkypeIndicator color="#5f5fff" style={styles.Indicator}/>
+          ) : (
+            <Image
+              style={styles.imageContainer}
+              resizeMode="cover"
+              //   source={{ uri: `data:image/png;base64,${displayImage[0]}`}}
+              source={{uri: `data:image/png;base64,${displayImage}`}}
+            />
+          )}
         </View>
       </View>
-    );
+    </View>
+  );
 
 }
 const styles = StyleSheet.create({
@@ -165,7 +153,7 @@ const styles = StyleSheet.create({
     padding: 10,
 
     width: "80%",
- 
+
   },
   sub_title: {
     fontSize: 15,
@@ -180,7 +168,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
 
     height: "100%",
-   
+
     marginHorizontal: -20,
     backgroundColor: "#FFFFFF",
     padding: 20,
@@ -190,20 +178,19 @@ const styles = StyleSheet.create({
   },
 
 
-
   output: {
     fontSize: 15,
     fontWeight: "bold",
     textAlign: "center",
     color: "black",
- 
+
   },
   buttonContainer: {
     justifyContent: "space-between",
     zIndex: 10000,
-  top: 12,
-  right: -10,
-   
+    top: 12,
+    right: -10,
+
 
     flexDirecton: "row",
   },
@@ -308,31 +295,31 @@ const styles = StyleSheet.create({
   },
   card: {
 
- 
+
     padding: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-     width: "108%",
+    width: "108%",
     borderRadius: 30,
     marginHorizontal: -14,
     zindex: 100000
   },
-  styleContainer:   
-{
-  marginVertical: 10,
-    justifyContent: "space-between",
-    alignItems: "center",
+  styleContainer:
+    {
+      marginVertical: 10,
+      justifyContent: "space-between",
+      alignItems: "center",
 
-    width: "120%",
-    marginHorizontal: -20,
-  },
-Indicator: {
+      width: "120%",
+      marginHorizontal: -20,
+    },
+  Indicator: {
 
     top: -130,
-  
+
   },
 
 });
